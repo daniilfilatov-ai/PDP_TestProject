@@ -1,0 +1,20 @@
+[
+  {
+    "SellerId": "994",
+    "Change": 10.0,
+    "Items": [
+      {
+        "ItemName": "juice",
+        "ItemCode": "J1",
+        "Quantity": 3,
+        "UnitPrice": 40.0
+      },
+      {
+        "ItemName": "apple",
+        "ItemCode": "A1",
+        "Quantity": 1,
+        "UnitPrice": 30.0
+      }
+    ]
+  }
+]
