@@ -41,7 +41,5 @@ Program can create database file, however file "input.json" is necessary.
     ]
   }
 ]
-
-
 Fixed specified problems, TotalPrice calculated by program, added back Domain, added ParseLogic.
 >>>>>>> Stashed changes
