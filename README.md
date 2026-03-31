@@ -1,6 +1,5 @@
 Test project for Professional Development Plan (PDP)
 
-<<<<<<< Updated upstream
 Project works according to this logic: in file "input.txt" entered transaction data, and the program processes it and transfer it into database "output". If some part of transaction is missed then database gets null. 
 
 Program can create database file, however file "input.txt" is necessary.
@@ -41,5 +40,5 @@ Program can create database file, however file "input.json" is necessary.
     ]
   }
 ]
+
 Fixed specified problems, TotalPrice calculated by program, added back Domain, added ParseLogic.
->>>>>>> Stashed changes
