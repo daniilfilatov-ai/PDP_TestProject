@@ -2,70 +2,69 @@
 using PDP_TestProject.Domain.Interfaces;
 using PDP_TestProject.Domain.Models;
 
-namespace PDP_TestProject.Application.InputStyles
+namespace PDP_TestProject.Application.InputStyles;
+
+public class DefaultJsonStyleParser : ITransactionParser
 {
-    public class DefaultJsonStyleParser : ITransactionParser
+    private class TransactionDto
     {
-        private class TransactionDto
+        public string? SellerId { get; set; }
+        public decimal? Change { get; set; }
+        public List<TransactionItemDto>? Items { get; set; }
+    }
+
+    private class TransactionItemDto
+    {
+        public string? ItemName { get; set; }
+        public string? ItemCode { get; set; }
+        public int? Quantity { get; set; }
+        public decimal? UnitPrice { get; set; }
+    }
+
+    public IEnumerable<Transaction> Parse(string rawData)
+    {
+        if(string.IsNullOrWhiteSpace(rawData))
         {
-            public string? SellerId { get; set; }
-            public decimal? Change { get; set; }
-            public List<TransactionItemDto>? Items { get; set; }
+            return Enumerable.Empty<Transaction>();
         }
 
-        private class TransactionItemDto
+        var options = new JsonSerializerOptions
         {
-            public string? ItemName { get; set; }
-            public string? ItemCode { get; set; }
-            public int? Quantity { get; set; }
-            public decimal? UnitPrice { get; set; }
+            PropertyNameCaseInsensitive = true
+        };
+
+        var dtos = JsonSerializer.Deserialize<List<TransactionDto>>(rawData, options);
+
+        if (dtos == null)
+        {
+            return Enumerable.Empty<Transaction>();
         }
 
-        public IEnumerable<Transaction> Parse(string rawData)
-        {
-            if(string.IsNullOrWhiteSpace(rawData))
-            {
-                return Enumerable.Empty<Transaction>();
-            }
+        var domainTransactions = new List<Transaction>();
 
-            var options = new JsonSerializerOptions
+        foreach (var dto in dtos)
+        {
+            var transaction = new Transaction
             {
-                PropertyNameCaseInsensitive = true
+                SellerId = dto.SellerId ?? string.Empty,
+                Change = dto.Change
             };
 
-            var dtos = JsonSerializer.Deserialize<List<TransactionDto>>(rawData, options);
-
-            if (dtos == null)
+            if(dto.Items != null)
             {
-                return Enumerable.Empty<Transaction>();
-            }
-
-            var domainTransactions = new List<Transaction>();
-
-            foreach (var dto in dtos)
-            {
-                var transaction = new Transaction
+                foreach (var itemDto in dto.Items)
                 {
-                    SellerId = dto.SellerId ?? string.Empty,
-                    Change = dto.Change
-                };
-
-                if(dto.Items != null)
-                {
-                    foreach (var itemDto in dto.Items)
+                    transaction.Items.Add(new TransactionItem
                     {
-                        transaction.Items.Add(new TransactionItem
-                        {
-                            ItemName = itemDto.ItemName ?? string.Empty,
-                            ItemCode = itemDto.ItemCode ?? string.Empty,
-                            Quantity = itemDto.Quantity ?? 0,
-                            UnitPrice = itemDto.UnitPrice ?? 0m
-                        });
-                    }
+                        ItemName = itemDto.ItemName ?? string.Empty,
+                        ItemCode = itemDto.ItemCode ?? string.Empty,
+                        Quantity = itemDto.Quantity ?? 0,
+                        UnitPrice = itemDto.UnitPrice ?? 0m
+                    });
                 }
-                domainTransactions.Add(transaction);
             }
-            return domainTransactions;
+            domainTransactions.Add(transaction);
         }
+        return domainTransactions;
     }
 }

@@ -1,10 +1,9 @@
-﻿namespace PDP_TestProject.Domain.Models
+﻿namespace PDP_TestProject.Domain.Models;
+
+public class TransactionItem
 {
-    public class TransactionItem
-    {
-        public string ItemName { get; set; } = string.Empty;
-        public string ItemCode { get; set; } = string.Empty;    
-        public int Quantity { get; set; }
-        public decimal UnitPrice { get; set; }
-    }
+    public required string ItemName { get; set; } 
+    public required string ItemCode { get; set; } 
+    public int Quantity { get; set; }
+    public decimal UnitPrice { get; set; }
 }

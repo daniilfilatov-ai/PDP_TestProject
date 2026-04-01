@@ -1,10 +1,9 @@
 ﻿using System.Collections.Generic;
 using PDP_TestProject.Domain.Models;
 
-namespace PDP_TestProject.Domain.Interfaces
+namespace PDP_TestProject.Domain.Interfaces;
+
+public interface ITransactionParser
 {
-    public interface ITransactionParser
-    {
-        IEnumerable<Transaction> Parse(string rawData);
-    }
+    IEnumerable<Transaction> Parse(string rawData);
 }

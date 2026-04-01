@@ -13,7 +13,7 @@ var configuration = new ConfigurationBuilder()
     .Build();
 
 var serviceProvider = new ServiceCollection()
-    .AddSingleton<IConfiguration>(configuration)
+    .Configure<DatabaseOptions>(configuration.GetSection("Database"))
     .AddTransient<IFileReader, LocalFileReader>()
     .AddTransient<ITransactionParser, DefaultJsonStyleParser>()
     .AddTransient<ITransactionRepository, SqliteTransactionRepository>()
@@ -21,7 +21,7 @@ var serviceProvider = new ServiceCollection()
     .BuildServiceProvider();
 
 var importService = serviceProvider.GetRequiredService<TransactionImportService>();
-string filePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "input.json");
+var filePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "input.json");
 
 
 await importService.ImportAsync(filePath);
