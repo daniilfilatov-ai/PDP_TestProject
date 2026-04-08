@@ -11,21 +11,19 @@ public class SqliteTransactionRepository : ITransactionRepository
 
     public SqliteTransactionRepository(IOptions<DatabaseOptions> options)
     {
-        _connectionString = options.Value.ConnectionString;
+        _connectionString = string.IsNullOrWhiteSpace(options.Value.ConnectionString)
+            ? "Data Source=output.db"
+            : options.Value.ConnectionString;
         
-        InitializeDatabaseAsync().GetAwaiter().GetResult();
     }
 
-    private async Task InitializeDatabaseAsync()
+    public async Task InitializeAsync()
     {
         await using var connection = new SqliteConnection(_connectionString);
         await connection.OpenAsync();
 
         await using var command = connection.CreateCommand();
         command.CommandText = @"
-                DROP TABLE IF EXISTS TransactionItems;
-                DROP TABLE IF EXISTS Transactions;
-
                 CREATE TABLE IF NOT EXISTS Transactions (
                     Id INTEGER PRIMARY KEY AUTOINCREMENT,
                     SellerId TEXT,

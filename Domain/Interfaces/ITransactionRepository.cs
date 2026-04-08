@@ -4,5 +4,6 @@ namespace PDP_TestProject.Domain.Interfaces;
 
 public interface ITransactionRepository
 {
+    Task InitializeAsync();
     Task SaveAsync(IEnumerable<Transaction> transactions);
 }

@@ -1,4 +1,4 @@
-﻿using PDP_TestProject.Domain.Interfaces;
+﻿using PDP_TestProject.Application.Interfaces;
 
 namespace PDP_TestProject.Infrastructure.Files;
 
