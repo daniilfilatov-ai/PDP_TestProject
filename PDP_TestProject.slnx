@@ -1,3 +1,6 @@
 <Solution>
-  <Project Path="PDP_TestProject/PDP_TestProject.csproj" />
+  <Project Path="Application/Application.csproj" Id="bb4d9291-3d4e-4dd9-96ec-bf48fddce2d4" />
+  <Project Path="ConsoleApp/ConsoleApp.csproj" Id="22869e13-89c0-4251-9779-4ea33dab9744" />
+  <Project Path="Domain/Domain.csproj" Id="440bf21c-c1d1-4b88-8eac-7205455b0e98" />
+  <Project Path="Infrastructure/Infrastructure.csproj" Id="afedbf44-cfcf-41d5-b8e1-7dfd6b50c959" />
 </Solution>
