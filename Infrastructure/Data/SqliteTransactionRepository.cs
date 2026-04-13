@@ -1,21 +1,18 @@
 ﻿using Microsoft.Data.Sqlite;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using PDP_TestProject.Domain.Interfaces;
 using PDP_TestProject.Domain.Models;
 
 namespace PDP_TestProject.Infrastructure.Data;
 
-public class SqliteTransactionRepository : ITransactionRepository
+public class SqliteTransactionRepository(
+    IOptions<DatabaseOptions> options,
+    ILogger<SqliteTransactionRepository> logger    ) : ITransactionRepository
 {
-    private readonly string _connectionString;
-
-    public SqliteTransactionRepository(IOptions<DatabaseOptions> options)
-    {
-        _connectionString = string.IsNullOrWhiteSpace(options.Value.ConnectionString)
+    private readonly string _connectionString = string.IsNullOrWhiteSpace(options.Value.ConnectionString)
             ? "Data Source=output.db"
             : options.Value.ConnectionString;
-        
-    }
 
     public async Task InitializeAsync()
     {
@@ -47,53 +44,77 @@ public class SqliteTransactionRepository : ITransactionRepository
         var list = transactions.ToList();
         if (list.Count == 0) return;
 
-        await using var connection = new SqliteConnection(_connectionString);
-        await connection.OpenAsync();
-        await using var tx = (SqliteTransaction) await connection.BeginTransactionAsync();
+        int maxRetries = 3;
+        int delayMs = 1000;
 
-        var transParams = list.SelectMany((t,i) => new[]
+        for (int attempt = 1; attempt <= maxRetries; attempt++)
         {
-            new SqliteParameter($"@SellerId{i}", t.SellerId),
-            new SqliteParameter($"@TotalPrice{i}", t.TotalPrice),
-            new SqliteParameter($"@Change{i}", t.Change ?? (object)DBNull.Value)
-        }).ToArray();
-
-        var transValues = string.Join(", ", list.Select((t, i) => $"(@SellerId{i}, @TotalPrice{i}, @Change{i})"));
-        var transCmd = connection.CreateCommand();
-        transCmd.Transaction = tx;
-        transCmd.CommandText = $"INSERT INTO Transactions (SellerId, TotalPrice, Change) VALUES {transValues}; SELECT last_insert_rowid();";
-        transCmd.Parameters.AddRange(transParams);
-
-        var isertedIds = new List<long>();
-        await using var reader = await transCmd.ExecuteReaderAsync();
-        while (await reader.ReadAsync())
-        {
-            isertedIds.Add(reader.GetInt64(0));
-        }
-
-        var itemsWithTransId = list.Zip(isertedIds, (t, id) => new { Trans = t, TransId = id })
-            .SelectMany(x => x.Trans.Items.Select(i => new { Item = i, TransId =  x.TransId}))
-            .ToList();
-
-        if(itemsWithTransId.Count > 0)
-        {
-            var itemParams = itemsWithTransId.SelectMany((t, i) => new[]
+            try
             {
-                new SqliteParameter($"@TransactionId{i}", t.TransId),
-                new SqliteParameter($"@ItemName{i}", t.Item.ItemName),
-                new SqliteParameter($"@ItemCode{i}", t.Item.ItemCode),
-                new SqliteParameter($"@Quantity{i}", t.Item.Quantity),
-                new SqliteParameter($"@UnitPrice{i}", t.Item.UnitPrice)
-            }).ToArray();
+                await using var connection = new SqliteConnection(_connectionString);
+                await connection.OpenAsync();
 
-            var itemValues = string.Join(", ", itemsWithTransId.Select((_, i) => $"(@TransactionId{i}, @ItemName{i}, @ItemCode{i}, @Quantity{i}, @UnitPrice{i})"));
-            var itemCmd = connection.CreateCommand();
-            itemCmd.Transaction = tx;
-            itemCmd.CommandText = $"INSERT INTO TransactionItems (TransactionId, ItemName, ItemCode, Quantity, UnitPrice) VALUES {itemValues};";
-            itemCmd.Parameters.AddRange(itemParams);
+                if (attempt == 1 && Random.Shared.Next(0, 2) == 0)
+                {
+                    logger.LogWarning("Simulating a transient failure on the first attempt.");
+                    throw new SqliteException("Simulated transient failure", 5);
+                }
 
-            await itemCmd.ExecuteNonQueryAsync();
+                await using var tx = (SqliteTransaction)await connection.BeginTransactionAsync();
+
+                var transParams = list.SelectMany((t, i) => new[]
+                {
+                    new SqliteParameter($"@SellerId{i}", t.SellerId),
+                    new SqliteParameter($"@TotalPrice{i}", t.TotalPrice),
+                    new SqliteParameter($"@Change{i}", t.Change ?? (object)DBNull.Value)
+                }).ToArray();
+
+                var transValues = string.Join(", ", list.Select((t, i) => $"(@SellerId{i}, @TotalPrice{i}, @Change{i})"));
+                var transCmd = connection.CreateCommand();
+                transCmd.Transaction = tx;
+                transCmd.CommandText = $"INSERT INTO Transactions (SellerId, TotalPrice, Change) VALUES {transValues}; SELECT last_insert_rowid();";
+                transCmd.Parameters.AddRange(transParams);
+
+                var isertedIds = new List<long>();
+                await using var reader = await transCmd.ExecuteReaderAsync();
+                while (await reader.ReadAsync())
+                {
+                    isertedIds.Add(reader.GetInt64(0));
+                }
+
+                var itemsWithTransId = list.Zip(isertedIds, (t, id) => new { Trans = t, TransId = id })
+                    .SelectMany(x => x.Trans.Items.Select(i => new { Item = i, TransId = x.TransId }))
+                    .ToList();
+
+                if (itemsWithTransId.Count > 0)
+                {
+                    var itemParams = itemsWithTransId.SelectMany((t, i) => new[]
+                    {
+                        new SqliteParameter($"@TransactionId{i}", t.TransId),
+                        new SqliteParameter($"@ItemName{i}", t.Item.ItemName),
+                        new SqliteParameter($"@ItemCode{i}", t.Item.ItemCode),
+                        new SqliteParameter($"@Quantity{i}", t.Item.Quantity),
+                        new SqliteParameter($"@UnitPrice{i}", t.Item.UnitPrice)
+                    }).ToArray();
+
+                    var itemValues = string.Join(", ", itemsWithTransId.Select((_, i) => $"(@TransactionId{i}, @ItemName{i}, @ItemCode{i}, @Quantity{i}, @UnitPrice{i})"));
+                    var itemCmd = connection.CreateCommand();
+                    itemCmd.Transaction = tx;
+                    itemCmd.CommandText = $"INSERT INTO TransactionItems (TransactionId, ItemName, ItemCode, Quantity, UnitPrice) VALUES {itemValues};";
+                    itemCmd.Parameters.AddRange(itemParams);
+
+                    await itemCmd.ExecuteNonQueryAsync();
+                }
+                await tx.CommitAsync();
+
+                logger.LogInformation("Transactions saved successfully on attempt {Attempt}.", attempt);
+                break;
+            }
+            catch (SqliteException ex) when (attempt < maxRetries)
+            {
+                logger.LogWarning(ex, "Attempt {Attempt} failed with a transient error. Retrying in {Delay}ms...", attempt, delayMs);
+                await Task.Delay(delayMs);
+            }
         }
-        await tx.CommitAsync();
     }
 }
